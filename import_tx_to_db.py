@@ -319,6 +319,15 @@ def parse_ligne_tr(champs: list, tx_file_id: int, atm_id: int, cardless_pan: str
     datetime_operation = datetime.combine(date_operation, heure_operation)
     is_cardless = (numero_carte.strip() == cardless_pan.strip())
 
+    if montant <= 0:
+        logger.info(
+            "Ligne TR %d ignorée (montant non positif=%s) : %s",
+            ligne_num,
+            montant,
+            champs,
+        )
+        return {"__ignored__": True}
+
     return {
         "tx_file_id": tx_file_id,
         "atm_id": atm_id,
@@ -522,6 +531,7 @@ def traiter_fichier(engine: Engine, filepath: Path) -> bool:
             lignes = lignes[1:]
 
         nb_tr = nb_ch = nb_de = 0
+        nb_tr_ignorees = 0
         nb_erreurs = 0
 
         # Création préalable de tx_file pour obtenir son id
@@ -554,8 +564,11 @@ def traiter_fichier(engine: Engine, filepath: Path) -> bool:
             if type_ligne == "TR":
                 data = parse_ligne_tr(champs, tx_file_id, atm_id, cardless_pan, i)
                 if data:
-                    inserer_transaction(conn, data)
-                    nb_tr += 1
+                    if data.get("__ignored__"):
+                        nb_tr_ignorees += 1
+                    else:
+                        inserer_transaction(conn, data)
+                        nb_tr += 1
                 else:
                     nb_erreurs += 1
 
@@ -583,8 +596,8 @@ def traiter_fichier(engine: Engine, filepath: Path) -> bool:
         )
 
         logger.info(
-            "Fichier traité : %s | TR=%d CH=%d DE=%d erreurs=%d",
-            filename, nb_tr, nb_ch, nb_de, nb_erreurs,
+            "Fichier traité : %s | TR=%d ignorées=%d CH=%d DE=%d erreurs=%d",
+            filename, nb_tr, nb_tr_ignorees, nb_ch, nb_de, nb_erreurs,
         )
         return nb_erreurs == 0
 

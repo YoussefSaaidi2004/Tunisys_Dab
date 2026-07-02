@@ -4,6 +4,7 @@ import { useAuth } from './auth/AuthContext'
 import ProtectedRoute from './auth/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
+import Transactions from './pages/Transactions'
 
 export default function App() {
   const { isAuthenticated } = useAuth()
@@ -16,6 +17,14 @@ export default function App() {
         element={
           <ProtectedRoute roles={["ADMIN", "SUPERVISOR", "AGENT", "AUDITOR"]}>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/transactions"
+        element={
+          <ProtectedRoute roles={["ADMIN", "SUPERVISOR", "AGENT"]}>
+            <Transactions />
           </ProtectedRoute>
         }
       />
