@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     bcrypt_rounds: int = Field(default=12, alias="BCRYPT_ROUNDS")
 
+    collecte_auto_enabled: bool = Field(default=False, alias="COLLECTE_AUTO_ENABLED")
+
     @property
     def sqlalchemy_database_url(self) -> URL:
         """Return a SQLAlchemy URL object (not a string) to preserve the password."""

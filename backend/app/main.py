@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,10 +15,35 @@ from app.api.routes.transactions import router as transactions_router
 from app.api.routes.tx_files import router as tx_files_router
 from app.api.routes.utilisateurs import router as utilisateurs_router
 from app.core.config import get_settings
+from app.services.collecte import run_collecte_et_import
 
 settings = get_settings()
 
-app = FastAPI(title=settings.app_name, debug=settings.app_debug)
+# APScheduler
+scheduler = BackgroundScheduler()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    if settings.collecte_auto_enabled:
+        scheduler.add_job(
+            run_collecte_et_import,
+            "cron",
+            hour=2,
+            minute=0,
+            id="collecte_daily",
+            name="Collecte quotidienne TX (02:00)",
+        )
+        scheduler.start()
+    yield
+    # Shutdown
+    if scheduler.running:
+        scheduler.shutdown()
+
+
+app = FastAPI(title=settings.app_name, debug=settings.app_debug, lifespan=lifespan)
+
 
 app.add_middleware(
     CORSMiddleware,
