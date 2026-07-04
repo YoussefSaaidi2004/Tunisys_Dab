@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_role
+from app.api.deps import require_role
 from app.core.database import get_db_session
 from app.models.tx_file import TXFile
 from app.models.utilisateur import Utilisateur
@@ -35,9 +35,7 @@ def declencher_collecte(
 
     background_tasks.add_task(run_collecte_et_import)
 
-    return APISuccess(
-        data={"message": "Collecte lancée en arrière-plan"}
-    )
+    return APISuccess(data={"message": "Collecte lancée en arrière-plan"})
 
 
 @router.get("/statut", response_model=APISuccess, dependencies=[Depends(require_role("ADMIN", "SUPERVISOR", "AUDITOR"))])

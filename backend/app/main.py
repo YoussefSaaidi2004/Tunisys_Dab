@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.audit import router as audit_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.affectation_atm import router as affectation_atm_router
 from app.api.routes.cassettes import router as cassettes_router
 from app.api.routes.collecte import router as collecte_router
 from app.api.routes.cycles import router as cycles_router
@@ -35,7 +36,7 @@ async def lifespan(app: FastAPI):
             id="collecte_daily",
             name="Collecte quotidienne TX (02:00)",
         )
-        scheduler.start()
+    scheduler.start()
     yield
     # Shutdown
     if scheduler.running:
@@ -56,6 +57,7 @@ app.add_middleware(
 
 app.include_router(audit_router, prefix=settings.api_prefix, tags=["audit"])
 app.include_router(auth_router, prefix=settings.api_prefix, tags=["auth"])
+app.include_router(affectation_atm_router, prefix=settings.api_prefix, tags=["affectations"])
 app.include_router(cassettes_router, prefix=settings.api_prefix, tags=["cassettes"])
 app.include_router(collecte_router, prefix=settings.api_prefix, tags=["collecte"])
 app.include_router(cycles_router, prefix=settings.api_prefix, tags=["cycles"])

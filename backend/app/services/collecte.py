@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -27,7 +28,7 @@ def run_collecte_et_import() -> dict[str, bool | str]:
     # Étape 1 : Collecte des fichiers
     try:
         process = subprocess.run(
-            ["python", str(collect_script)],
+            [sys.executable, str(collect_script)],
             cwd=str(repo_root),
             capture_output=True,
             text=True,
@@ -44,7 +45,7 @@ def run_collecte_et_import() -> dict[str, bool | str]:
     if result["collecte_ok"]:
         try:
             process = subprocess.run(
-                ["python", str(import_script)],
+                [sys.executable, str(import_script)],
                 cwd=str(repo_root),
                 capture_output=True,
                 text=True,
