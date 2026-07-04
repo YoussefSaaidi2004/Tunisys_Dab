@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.audit import router as audit_router
+from app.api.routes.atm_config import router as atm_config_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.affectation_atm import router as affectation_atm_router
 from app.api.routes.cassettes import router as cassettes_router
@@ -56,6 +57,7 @@ app.add_middleware(
 )
 
 app.include_router(audit_router, prefix=settings.api_prefix, tags=["audit"])
+app.include_router(atm_config_router, prefix=settings.api_prefix, tags=["dab"])
 app.include_router(auth_router, prefix=settings.api_prefix, tags=["auth"])
 app.include_router(affectation_atm_router, prefix=settings.api_prefix, tags=["affectations"])
 app.include_router(cassettes_router, prefix=settings.api_prefix, tags=["cassettes"])

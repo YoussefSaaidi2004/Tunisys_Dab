@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     bcrypt_rounds: int = Field(default=12, alias="BCRYPT_ROUNDS")
 
+    ssh_encryption_key: str = Field(default="", alias="SSH_ENCRYPTION_KEY")
+
     collecte_auto_enabled: bool = Field(default=False, alias="COLLECTE_AUTO_ENABLED")
 
     @property
