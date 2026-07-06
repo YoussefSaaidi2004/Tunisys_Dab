@@ -6,6 +6,27 @@ const AuthContext = createContext(null)
 
 const STORAGE_KEY = 'tunisys_dab_auth'
 
+function decodeJwtPayload(token) {
+  try {
+    if (!token || typeof token !== 'string') return null
+
+    const parts = token.split('.')
+    if (parts.length < 2 || !parts[1]) return null
+
+    const base64Url = parts[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const decoded = atob(padded)
+
+    const bytes = Array.from(decoded, (char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
+    const json = decodeURIComponent(bytes)
+
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
 function loadSession() {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
@@ -23,7 +44,19 @@ export function AuthProvider({ children }) {
     const stored = loadSession()
     if (stored?.tokens) {
       tokenStore.setTokens(stored.tokens)
-      setUser(stored.user || null)
+
+      const storedUser = stored.user || null
+      const accessToken = stored.tokens?.access_token
+
+      if (storedUser && !storedUser.role && accessToken) {
+        const jwtPayload = decodeJwtPayload(accessToken)
+        setUser({
+          login: jwtPayload?.sub || storedUser.login,
+          role: jwtPayload?.role,
+        })
+      } else {
+        setUser(storedUser)
+      }
     }
     setReady(true)
   }, [])
@@ -45,7 +78,11 @@ export function AuthProvider({ children }) {
       throw new Error('Réponse d’authentification invalide')
     }
 
-    const nextUser = { login: loginValue }
+    const tokenPayload = decodeJwtPayload(payload.access_token)
+    const nextUser = {
+      login: tokenPayload?.sub || loginValue,
+      role: tokenPayload?.role,
+    }
     persist(nextUser, payload)
     return nextUser
   }

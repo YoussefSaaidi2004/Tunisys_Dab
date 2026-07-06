@@ -5,6 +5,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
 import SecurityIcon from '@mui/icons-material/Security'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import MenuIcon from '@mui/icons-material/Menu'
 import { NavLink } from 'react-router-dom'
 
@@ -15,6 +16,7 @@ const drawerWidth = 280
 const navigationByRole = {
   ADMIN: [
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
+    { label: 'Import TX', to: '/import', icon: <CloudUploadIcon /> },
     { label: 'Terminaux', to: '/terminaux', icon: <AccountTreeIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
     { label: 'Utilisateurs', to: '/utilisateurs', icon: <ManageAccountsIcon /> },
@@ -22,6 +24,7 @@ const navigationByRole = {
   ],
   SUPERVISOR: [
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
+    { label: 'Import TX', to: '/import', icon: <CloudUploadIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
     { label: 'Cycles', to: '/cycles', icon: <AccountTreeIcon /> },
   ],
