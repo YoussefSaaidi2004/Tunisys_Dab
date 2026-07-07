@@ -19,7 +19,7 @@ const navigationByRole = {
     { label: 'Import TX', to: '/import', icon: <CloudUploadIcon /> },
     { label: 'Terminaux', to: '/terminaux', icon: <AccountTreeIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
-    { label: 'Utilisateurs', to: '/utilisateurs', icon: <ManageAccountsIcon /> },
+    { label: 'Gestion des utilisateurs', to: '/utilisateurs', icon: <ManageAccountsIcon /> },
     { label: 'Journal d’audit', to: '/audit', icon: <SecurityIcon /> },
   ],
   SUPERVISOR: [
