@@ -6,6 +6,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
 import SecurityIcon from '@mui/icons-material/Security'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import AssessmentIcon from '@mui/icons-material/Assessment'
 import MenuIcon from '@mui/icons-material/Menu'
 import { NavLink } from 'react-router-dom'
 
@@ -19,6 +20,7 @@ const navigationByRole = {
     { label: 'Import TX', to: '/import', icon: <CloudUploadIcon /> },
     { label: 'Terminaux', to: '/terminaux', icon: <AccountTreeIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
+    { label: 'Rapports', to: '/rapports', icon: <AssessmentIcon /> },
     { label: 'Gestion des utilisateurs', to: '/utilisateurs', icon: <ManageAccountsIcon /> },
     { label: 'Journal d’audit', to: '/audit', icon: <SecurityIcon /> },
   ],
@@ -26,6 +28,7 @@ const navigationByRole = {
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
     { label: 'Import TX', to: '/import', icon: <CloudUploadIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
+    { label: 'Rapports', to: '/rapports', icon: <AssessmentIcon /> },
     { label: 'Cycles', to: '/cycles', icon: <AccountTreeIcon /> },
   ],
   AGENT: [
@@ -34,6 +37,7 @@ const navigationByRole = {
   ],
   AUDITOR: [
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
+    { label: 'Rapports', to: '/rapports', icon: <AssessmentIcon /> },
     { label: 'Journal d’audit', to: '/audit', icon: <SecurityIcon /> },
   ],
 }

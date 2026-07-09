@@ -18,7 +18,14 @@ def get_current_user(
     db: Session = Depends(get_db_session),
 ) -> Utilisateur:
     token = credentials.credentials
-    payload = decode_token(token)
+    try:
+        payload = decode_token(token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
 
     if payload.get("token_type") != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Type de token invalide")

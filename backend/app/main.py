@@ -12,6 +12,7 @@ from app.api.routes.cassettes import router as cassettes_router
 from app.api.routes.collecte import router as collecte_router
 from app.api.routes.cycles import router as cycles_router
 from app.api.routes.dab import router as dab_router
+from app.api.routes.rapports import router as rapports_router
 from app.api.routes.statistiques import router as statistiques_router
 from app.api.routes.transactions import router as transactions_router
 from app.api.routes.tx_files import router as tx_files_router
@@ -64,6 +65,7 @@ app.include_router(cassettes_router, prefix=settings.api_prefix, tags=["cassette
 app.include_router(collecte_router, prefix=settings.api_prefix, tags=["collecte"])
 app.include_router(cycles_router, prefix=settings.api_prefix, tags=["cycles"])
 app.include_router(dab_router, prefix=settings.api_prefix, tags=["dab"])
+app.include_router(rapports_router, prefix=settings.api_prefix, tags=["rapports"])
 app.include_router(statistiques_router, prefix=settings.api_prefix, tags=["statistiques"])
 app.include_router(transactions_router, prefix=settings.api_prefix, tags=["transactions"])
 app.include_router(tx_files_router, prefix=settings.api_prefix, tags=["fichiers-tx"])
