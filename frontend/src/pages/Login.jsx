@@ -3,6 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Container, TextField, Typography
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/AuthContext'
+import { getDefaultRouteForRole } from '../auth/roleRoutes'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -17,8 +18,8 @@ export default function Login() {
     setLoading(true)
 
     try {
-      await login(form.login, form.motDePasse)
-      navigate('/', { replace: true })
+      const loggedInUser = await login(form.login, form.motDePasse)
+      navigate(getDefaultRouteForRole(loggedInUser.role), { replace: true })
     } catch (err) {
       setError(err.response?.data?.detail || err.message || 'Échec de connexion')
     } finally {

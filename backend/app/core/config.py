@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     bcrypt_rounds: int = Field(default=12, alias="BCRYPT_ROUNDS")
 
+    seuil_alerte_coffre: float = Field(default=5000, alias="SEUIL_ALERTE_COFFRE")
+
     @property
     def sqlalchemy_database_url(self) -> URL:
         """Return a SQLAlchemy URL object (not a string) to preserve the password."""
