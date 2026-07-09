@@ -4,6 +4,7 @@ import { useAuth } from './auth/AuthContext'
 import ProtectedRoute from './auth/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
 import GestionUtilisateurs from './pages/GestionUtilisateurs'
+import JournalAudit from './pages/JournalAudit'
 import ImportTX from './pages/ImportTX'
 import Login from './pages/Login'
 
@@ -34,6 +35,14 @@ export default function App() {
         element={
           <ProtectedRoute roles={["ADMIN"]}>
             <GestionUtilisateurs />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/audit"
+        element={
+          <ProtectedRoute roles={["ADMIN", "AUDITOR"]}>
+            <JournalAudit />
           </ProtectedRoute>
         }
       />
