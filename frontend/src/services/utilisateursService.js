@@ -336,24 +336,7 @@ export function updateUser(id, payload) {
   return api.put(`/utilisateurs/${id}`, payload)
 }
 
-export function deleteUser(id) {
-  if (USE_MOCK) {
-    const user = getUserOrThrow(id)
-    const hasAffectations = mockAffectations.some((item) => item.utilisateur_id === user.id)
-    if (hasAffectations) {
-      throw createError(
-        'Impossible de supprimer cet utilisateur : des affectations existent. Désactivez-le plutôt.',
-        409,
-        'ERR_USER_LINKED_DATA',
-      )
-    }
 
-    mockUsers = mockUsers.filter((entry) => entry.id !== user.id)
-    return delay(makeSuccess({ message: `Utilisateur '${user.login}' supprimé avec succès` }))
-  }
-
-  return api.delete(`/utilisateurs/${id}`)
-}
 
 export function getAffectations(id) {
   if (USE_MOCK) {

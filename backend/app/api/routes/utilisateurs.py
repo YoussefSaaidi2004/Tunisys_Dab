@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_role
@@ -171,44 +171,3 @@ def update_utilisateur(
     return APISuccess(data=UtilisateurResponse.model_validate(user).model_dump())
 
 
-@router.delete("/{utilisateur_id}", response_model=APISuccess)
-def delete_utilisateur(
-    utilisateur_id: int,
-    request: Request,
-    current_user: Utilisateur = Depends(require_role("ADMIN")),
-    db: Session = Depends(get_db_session),
-):
-    user = _get_utilisateur_or_404(db, utilisateur_id)
-
-    if user.id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Vous ne pouvez pas supprimer votre propre compte",
-        )
-
-    login_supprime = user.login
-
-    try:
-        db.delete(user)
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Impossible de supprimer cet utilisateur : des données liées existent "
-                "(journal d'audit, affectations). Désactivez-le plutôt (actif=false)."
-            ),
-        ) from None
-
-    write_audit(
-        db,
-        action="UTILISATEUR_DELETE",
-        utilisateur_id=current_user.id,
-        ressource=f"utilisateur:{utilisateur_id}",
-        details={"login_supprime": login_supprime},
-        adresse_ip=request.client.host if request.client else None,
-        resultat="SUCCES",
-    )
-
-    return APISuccess(data={"message": f"Utilisateur '{login_supprime}' supprimé avec succès"})

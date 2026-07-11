@@ -28,16 +28,15 @@ import ToggleOffIcon from '@mui/icons-material/ToggleOff'
 import ToggleOnIcon from '@mui/icons-material/ToggleOn'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
-import DeleteIcon from '@mui/icons-material/Delete'
+
 import ShuffleIcon from '@mui/icons-material/Shuffle'
 
 import { useAuth } from '../auth/AuthContext'
 import AppShell from '../components/layout/AppShell'
-import ConfirmDeleteDialog from '../components/users/ConfirmDeleteDialog'
+
 import UserAffectationsDialog from '../components/users/UserAffectationsDialog'
 import UserFormDialog from '../components/users/UserFormDialog'
-import { createUser, deleteUser, listUsers, updateUser } from '../services/utilisateursService'
-
+import { createUser, listUsers, updateUser } from '../services/utilisateursService'
 const ROLE_OPTIONS = ['ADMIN', 'SUPERVISOR', 'AGENT', 'AUDITOR']
 const STATUS_OPTIONS = [
   { value: '', label: 'Tous' },
@@ -100,10 +99,9 @@ export default function GestionUtilisateurs() {
   const [editingUser, setEditingUser] = useState(null)
   const [affectationsOpen, setAffectationsOpen] = useState(false)
   const [affectationsUser, setAffectationsUser] = useState(null)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteUserTarget, setDeleteUserTarget] = useState(null)
+  
   const [mutatingUserId, setMutatingUserId] = useState(null)
-  const [deleting, setDeleting] = useState(false)
+  
 
   const pageParams = useMemo(
     () => ({
@@ -214,33 +212,7 @@ export default function GestionUtilisateurs() {
     }
   }
 
-  const handleDelete = async () => {
-    if (!deleteUserTarget) {
-      return
-    }
-
-    setDeleting(true)
-    try {
-      await deleteUser(deleteUserTarget.id)
-      showSnackbar('Utilisateur supprimé avec succès', 'success')
-      setDeleteOpen(false)
-      setDeleteUserTarget(null)
-      await loadUsers()
-    } catch (err) {
-      const status = err.response?.status
-      if (status === 401 || status === 403) {
-        await handleSessionExpired()
-        window.location.assign('/login')
-        throw err
-      }
-
-      const message = err.response?.data?.message || err.response?.data?.detail || err.message || 'Impossible de supprimer l’utilisateur'
-      showSnackbar(message, 'error')
-      throw err
-    } finally {
-      setDeleting(false)
-    }
-  }
+  
 
   const handleRetry = () => {
     void loadUsers()
@@ -275,10 +247,7 @@ export default function GestionUtilisateurs() {
     setAffectationsOpen(true)
   }
 
-  const openDeleteDialog = (user) => {
-    setDeleteUserTarget(user)
-    setDeleteOpen(true)
-  }
+  
 
   return (
     <AppShell>
@@ -394,9 +363,7 @@ export default function GestionUtilisateurs() {
                               Affectations
                             </Button>
                           ) : null}
-                          <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => openDeleteDialog(user)}>
-                            Supprimer
-                          </Button>
+                          
                         </Stack>
                       </TableCell>
                     </TableRow>
@@ -432,13 +399,7 @@ export default function GestionUtilisateurs() {
         onClose={() => setAffectationsOpen(false)}
       />
 
-      <ConfirmDeleteDialog
-        open={deleteOpen}
-        user={deleteUserTarget}
-        loading={deleting}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={handleDelete}
-      />
+      
 
       <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={closeSnackbar} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
         <Alert onClose={closeSnackbar} severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>
