@@ -6,9 +6,8 @@ import {
   Card,
   CardContent,
   Checkbox,
-  Chip,
-  FormControlLabel,
   Grid,
+  ListItemText,
   MenuItem,
   Paper,
   Skeleton,
@@ -23,11 +22,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import SearchIcon from '@mui/icons-material/Search'
 
 import { fetchDabs } from '../api/endpoints/dabs'
-import { exportTransactionsCsv, fetchTransactions } from '../api/endpoints/transactions'
+import { exportTransactionsCsv, fetchTransactions, fetchTransactionsDailySummary } from '../api/endpoints/transactions'
 import { useAuth } from '../auth/AuthContext'
 import AppShell from '../components/layout/AppShell'
+import DailyDistributionChart from '../components/charts/DailyDistributionChart'
 
 const DEFAULT_LIMIT = 50
 
@@ -38,13 +39,14 @@ function getTodayDateValue() {
 function createDefaultFilters() {
   const today = getTodayDateValue()
   return {
-    atm_id: '',
+    atm_id: [],
     date_debut: today,
     date_fin: today,
     montant_min: '',
     montant_max: '',
     reste_coffre_max: '',
-    is_cardless: false,
+    search: '',
+    tri_reste_coffre: '',
   }
 }
 
@@ -52,11 +54,12 @@ function buildRequestParams(filters, skip, limit) {
   return {
     date_debut: filters.date_debut || undefined,
     date_fin: filters.date_fin || undefined,
-    atm_id: filters.atm_id === '' ? undefined : [Number(filters.atm_id)],
+    atm_id: filters.atm_id.length === 0 ? undefined : filters.atm_id.map(Number),
     montant_min: filters.montant_min === '' ? undefined : Number(filters.montant_min),
     montant_max: filters.montant_max === '' ? undefined : Number(filters.montant_max),
     reste_coffre_max: filters.reste_coffre_max === '' ? undefined : Number(filters.reste_coffre_max),
-    is_cardless: filters.is_cardless ? true : undefined,
+    search: filters.search.trim() === '' ? undefined : filters.search.trim(),
+    tri_reste_coffre: filters.tri_reste_coffre === '' ? undefined : filters.tri_reste_coffre,
     skip,
     limit,
   }
@@ -119,8 +122,11 @@ export default function Transactions() {
   const [error, setError] = useState('')
   const [exportError, setExportError] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [dailySummary, setDailySummary] = useState([])
+  const [loadingSummary, setLoadingSummary] = useState(true)
 
   const requestParams = useMemo(() => buildRequestParams(appliedFilters, skip, limit), [appliedFilters, skip, limit])
+  const summaryParams = useMemo(() => buildRequestParams(appliedFilters, undefined, undefined), [appliedFilters])
 
   useEffect(() => {
     let mounted = true
@@ -150,6 +156,28 @@ export default function Transactions() {
 
   useEffect(() => {
     let mounted = true
+    setLoadingSummary(true)
+
+    fetchTransactionsDailySummary(summaryParams)
+      .then((response) => {
+        if (!mounted) return
+        setDailySummary(response.data?.data || [])
+      })
+      .catch(() => {
+        if (!mounted) return
+        setDailySummary([])
+      })
+      .finally(() => {
+        if (mounted) setLoadingSummary(false)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [summaryParams])
+
+  useEffect(() => {
+    let mounted = true
 
     fetchDabs()
       .then((response) => {
@@ -170,7 +198,7 @@ export default function Transactions() {
   }, [])
 
   const handleFilterChange = (field) => (event) => {
-    const value = field === 'is_cardless' ? event.target.checked : event.target.value
+    const value = event.target.value
     setFilters((current) => ({
       ...current,
       [field]: value,
@@ -244,6 +272,18 @@ export default function Transactions() {
       <Card sx={{ mb: 3, border: '1px solid rgba(255,255,255,0.08)' }}>
         <CardContent>
           <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Recherche"
+                placeholder="N° autorisation monétique, N° carte, nom ou terminal du DAB…"
+                value={filters.search}
+                onChange={handleFilterChange('search')}
+                InputProps={{
+                  startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: 'rgba(255,255,255,0.5)' }} />,
+                }}
+              />
+            </Grid>
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -251,12 +291,22 @@ export default function Transactions() {
                 label="DAB"
                 value={filters.atm_id}
                 onChange={handleFilterChange('atm_id')}
+                SelectProps={{
+                  multiple: true,
+                  renderValue: (selected) => {
+                    if (!selected || selected.length === 0) return 'Tous les DAB'
+                    return dabs
+                      .filter((dab) => selected.includes(String(dab.id)))
+                      .map((dab) => dab.nom)
+                      .join(', ')
+                  },
+                }}
               >
-                <MenuItem value="">Tous les DAB</MenuItem>
                 {loadingDabs ? <MenuItem value="" disabled>Chargement...</MenuItem> : null}
                 {dabs.map((dab) => (
                   <MenuItem key={dab.id} value={String(dab.id)}>
-                    {dab.nom} ({dab.terminal_id})
+                    <Checkbox checked={filters.atm_id.indexOf(String(dab.id)) > -1} size="small" />
+                    <ListItemText primary={`${dab.nom} (${dab.terminal_id})`} />
                   </MenuItem>
                 ))}
               </TextField>
@@ -311,11 +361,18 @@ export default function Transactions() {
                 inputProps={{ min: 0, step: '0.001' }}
               />
             </Grid>
-            <Grid item xs={12} md={4} sx={{ display: 'flex', alignItems: 'center' }}>
-              <FormControlLabel
-                control={<Checkbox checked={Boolean(filters.is_cardless)} onChange={handleFilterChange('is_cardless')} />}
-                label="Cardless uniquement"
-              />
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                fullWidth
+                select
+                label="Tri par reste coffre"
+                value={filters.tri_reste_coffre}
+                onChange={handleFilterChange('tri_reste_coffre')}
+              >
+                <MenuItem value="">Aucun tri</MenuItem>
+                <MenuItem value="asc">Reste coffre croissant</MenuItem>
+                <MenuItem value="desc">Reste coffre décroissant</MenuItem>
+              </TextField>
             </Grid>
           </Grid>
 
@@ -335,6 +392,19 @@ export default function Transactions() {
         </CardContent>
       </Card>
 
+      <Card sx={{ mb: 3, border: '1px solid rgba(255,255,255,0.08)' }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Distribution journalière
+          </Typography>
+          {loadingSummary ? (
+            <Skeleton variant="rectangular" height={300} />
+          ) : (
+            <DailyDistributionChart data={dailySummary} dabs={dabs} />
+          )}
+        </CardContent>
+      </Card>
+
       <Card sx={{ border: '1px solid rgba(255,255,255,0.08)' }}>
         <TableContainer component={Paper} sx={{ background: 'transparent', boxShadow: 'none', borderRadius: 0, overflowX: 'auto' }}>
           <Table sx={{ minWidth: 1100 }}>
@@ -345,8 +415,8 @@ export default function Transactions() {
                 <TableCell>Heure</TableCell>
                 <TableCell align="right">Montant (DT)</TableCell>
                 <TableCell align="right">Reste coffre (DT)</TableCell>
-                <TableCell>N° séq. DAB</TableCell>
-                <TableCell>Cardless</TableCell>
+                <TableCell>N° autorisation monétique</TableCell>
+                <TableCell>N° carte</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -385,15 +455,8 @@ export default function Transactions() {
                     <TableCell align="right" sx={lowCash ? { color: '#ffa726', fontWeight: 600 } : undefined}>
                       {formatAmount(row.reste_coffre)}
                     </TableCell>
-                    <TableCell>{row.num_seq_dab}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.is_cardless ? 'Oui' : 'Non'}
-                        size="small"
-                        color={row.is_cardless ? 'success' : 'default'}
-                        variant={row.is_cardless ? 'filled' : 'outlined'}
-                      />
-                    </TableCell>
+                    <TableCell>{row.num_autorisation_monetique}</TableCell>
+                    <TableCell>{row.numero_carte || '—'}</TableCell>
                   </TableRow>
                 )
               })}

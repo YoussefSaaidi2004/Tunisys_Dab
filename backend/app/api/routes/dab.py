@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_agent_has_atm_access, require_role
 from app.api.routes.cycles import serialize_cycle
 from app.core.database import get_db_session
+from app.core.security import mask_pan
 from app.models.affectation_atm import AffectationATM
 from app.models.atm import ATM
 from app.models.atm_id_historique import ATMIdHistorique
@@ -179,12 +180,12 @@ def get_dab_transactions(
     data = [
         {
             "id": t.id,
-            "num_seq_dab": t.num_seq_dab,
+            "num_autorisation_monetique": t.num_autorisation_monetique,
             "date_operation": str(t.date_operation),
             "heure_operation": str(t.heure_operation),
             "montant": float(t.montant),
             "reste_coffre": float(t.reste_coffre),
-            "is_cardless": t.is_cardless
+            "numero_carte": mask_pan(t.numero_carte)
         }
         for t in transactions
     ]

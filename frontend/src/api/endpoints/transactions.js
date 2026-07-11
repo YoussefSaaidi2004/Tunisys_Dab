@@ -30,6 +30,13 @@ export function fetchTransactions(params) {
   })
 }
 
+export function fetchTransactionsDailySummary(params) {
+  return api.get('/transactions/daily-summary', {
+    params,
+    paramsSerializer: serializeParams,
+  })
+}
+
 export function exportTransactionsCsv(params) {
   return api.get('/transactions/export', {
     params: { ...params, format: 'csv' },

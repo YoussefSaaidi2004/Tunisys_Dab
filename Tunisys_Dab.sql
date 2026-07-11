@@ -69,13 +69,13 @@ CREATE TABLE transaction (
     id                  BIGSERIAL PRIMARY KEY,
     tx_file_id          INTEGER NOT NULL REFERENCES tx_file(id) ON DELETE CASCADE,
     atm_id              INTEGER NOT NULL REFERENCES atm(id) ON DELETE CASCADE,
-    num_seq_dab         VARCHAR(20) NOT NULL,
+    num_autorisation_monetique VARCHAR(20) NOT NULL,
     date_operation      DATE NOT NULL,
     heure_operation     TIME NOT NULL,
     datetime_operation  TIMESTAMPTZ,
     montant             NUMERIC(12,3) NOT NULL CHECK (montant > 0),
     reste_coffre        NUMERIC(12,3) NOT NULL CHECK (reste_coffre >= 0),
-    is_cardless         BOOLEAN DEFAULT FALSE
+    numero_carte        VARCHAR(20)
 );
 
 -- Table 5 : cassette_event — Événements cassettes (lignes CH/DE)
@@ -163,7 +163,6 @@ CREATE TABLE journal_audit (
 CREATE INDEX idx_transaction_atm_date       ON transaction (atm_id, date_operation);
 CREATE INDEX idx_transaction_datetime        ON transaction (datetime_operation);
 CREATE INDEX idx_transaction_tx_file         ON transaction (tx_file_id);
-CREATE INDEX idx_transaction_cardless        ON transaction (is_cardless);
 
 CREATE INDEX idx_cassette_event_atm_datetime ON cassette_event (atm_id, datetime_evenement);
 

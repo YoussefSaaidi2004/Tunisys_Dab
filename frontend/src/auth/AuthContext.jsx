@@ -1,21 +1,31 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import api, { tokenStore } from '../api/axiosClient'
+import api, { setSessionExpiredHandler, tokenStore } from '../api/axiosClient'
 
 const AuthContext = createContext(null)
 
 const STORAGE_KEY = 'tunisys_dab_auth'
 
-function decodeJwtRole(accessToken) {
+// setTimeout ne supporte pas un délai au-delà de ~24.8 jours (overflow
+// 32-bit) ; le refresh token vit au plus JWT_REFRESH_TOKEN_EXPIRE_DAYS
+// (7 jours par défaut) mais on plafonne par sécurité si la config change.
+const MAX_TIMEOUT_MS = 2_147_483_647
+
+function decodeJwtPayload(token) {
   try {
-    const payloadBase64 = accessToken.split('.')[1]
+    const payloadBase64 = token.split('.')[1]
     const normalizedBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/')
     const paddedBase64 = normalizedBase64.padEnd(Math.ceil(normalizedBase64.length / 4) * 4, '=')
     const payloadJson = atob(paddedBase64)
-    return JSON.parse(payloadJson).role || null
+    return JSON.parse(payloadJson)
   } catch {
     return null
   }
+}
+
+function decodeJwtRole(accessToken) {
+  return decodeJwtPayload(accessToken)?.role || null
 }
 
 function loadSession() {
@@ -28,8 +38,46 @@ function loadSession() {
 }
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [ready, setReady] = useState(false)
+  const expiryTimerRef = useRef(null)
+
+  const clearExpiryTimer = () => {
+    if (expiryTimerRef.current) {
+      clearTimeout(expiryTimerRef.current)
+      expiryTimerRef.current = null
+    }
+  }
+
+  const forceLogout = () => {
+    clearExpiryTimer()
+    tokenStore.clear()
+    setUser(null)
+    sessionStorage.removeItem(STORAGE_KEY)
+    navigate('/login', { replace: true, state: { sessionExpired: true } })
+  }
+
+  // Déconnexion proactive : programmée sur l'expiration réelle du refresh
+  // token (la véritable limite de la session), pas seulement en réaction à
+  // un prochain appel API qui échouerait.
+  const scheduleExpiryLogout = (refreshTokenValue) => {
+    clearExpiryTimer()
+    const payload = refreshTokenValue ? decodeJwtPayload(refreshTokenValue) : null
+    if (!payload?.exp) return
+
+    const msUntilExpiry = payload.exp * 1000 - Date.now()
+    if (msUntilExpiry <= 0) {
+      forceLogout()
+      return
+    }
+    expiryTimerRef.current = setTimeout(forceLogout, Math.min(msUntilExpiry, MAX_TIMEOUT_MS))
+  }
+
+  useEffect(() => {
+    setSessionExpiredHandler(forceLogout)
+    return () => setSessionExpiredHandler(null)
+  }, [])
 
   useEffect(() => {
     const stored = loadSession()
@@ -38,18 +86,21 @@ export function AuthProvider({ children }) {
       const nextRole = stored.user?.role || decodeJwtRole(stored.tokens.access_token)
       const nextUser = stored.user ? { ...stored.user, role: nextRole } : null
       setUser(nextUser)
+      scheduleExpiryLogout(stored.tokens.refresh_token)
 
       if (stored.user && stored.user.role !== nextRole) {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ user: nextUser, tokens: stored.tokens }))
       }
     }
     setReady(true)
+    return () => clearExpiryTimer()
   }, [])
 
   const persist = (nextUser, tokens) => {
     setUser(nextUser)
     tokenStore.setTokens(tokens)
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ user: nextUser, tokens }))
+    scheduleExpiryLogout(tokens.refresh_token)
   }
 
   const login = async (loginValue, motDePasse) => {
@@ -75,6 +126,7 @@ export function AuthProvider({ children }) {
         await api.post('/auth/logout', { refresh_token: refreshToken })
       }
     } finally {
+      clearExpiryTimer()
       tokenStore.clear()
       setUser(null)
       sessionStorage.removeItem(STORAGE_KEY)

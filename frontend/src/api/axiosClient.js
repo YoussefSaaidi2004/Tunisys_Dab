@@ -5,6 +5,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 let accessToken = null
 let refreshToken = null
 let refreshPromise = null
+let sessionExpiredHandler = null
+
+// Enregistré par AuthContext : appelé quand le refresh token est lui-même
+// invalide/expiré, c'est-à-dire quand la session a réellement expiré.
+export function setSessionExpiredHandler(handler) {
+  sessionExpiredHandler = handler
+}
 
 export const tokenStore = {
   getAccessToken: () => accessToken,
@@ -70,9 +77,15 @@ api.interceptors.response.use(
     const originalRequest = error.config
     if (error.response?.status === 401 && !originalRequest?._retry && tokenStore.getRefreshToken()) {
       originalRequest._retry = true
-      const nextAccessToken = await refreshAccessToken()
-      originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`
-      return api(originalRequest)
+      try {
+        const nextAccessToken = await refreshAccessToken()
+        originalRequest.headers.Authorization = `Bearer ${nextAccessToken}`
+        return api(originalRequest)
+      } catch (refreshError) {
+        tokenStore.clear()
+        sessionExpiredHandler?.()
+        return Promise.reject(refreshError)
+      }
     }
     return Promise.reject(error)
   },

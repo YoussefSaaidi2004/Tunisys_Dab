@@ -56,6 +56,19 @@ except ImportError:
 # Configuration & logging
 # ------------------------------------------------------------------
 
+# Si True, le PAN (numero_carte, champ 8 des lignes TR) est masqué avant
+# stockage : BIN(6) + étoiles + 4 derniers chiffres. Passer à False stocke
+# le PAN complet en clair — hors périmètre PCI-DSS uniquement si masqué,
+# donc laisser True sauf besoin explicite documenté.
+MASK_PAN = True
+
+
+def mask_pan(pan: str) -> str:
+    if len(pan) < 10:
+        return pan
+    return pan[:6] + "*" * (len(pan) - 10) + pan[-4:]
+
+
 def load_environment() -> None:
     env_path = Path(__file__).with_name(".env")
 
@@ -296,7 +309,7 @@ def purger_donnees_existantes(conn, tx_file_id: int) -> None:
 # Parsing d'une ligne TR
 # ------------------------------------------------------------------
 
-def parse_ligne_tr(champs: list, tx_file_id: int, atm_id: int, cardless_pan: str,
+def parse_ligne_tr(champs: list, tx_file_id: int, atm_id: int,
                     ligne_num: int) -> Optional[dict]:
     """
     Format TR :
@@ -306,7 +319,7 @@ def parse_ligne_tr(champs: list, tx_file_id: int, atm_id: int, cardless_pan: str
         logger.warning("Ligne TR %d malformée (champs insuffisants) : %s", ligne_num, champs)
         return None
     try:
-        num_seq_dab = champs[0]
+        num_autorisation_monetique = champs[5]
         date_operation = parse_date_jjmmaa(champs[3])
         heure_operation = parse_heure_tr(champs[4])
         montant = montant_to_numeric(champs[6])
@@ -317,7 +330,8 @@ def parse_ligne_tr(champs: list, tx_file_id: int, atm_id: int, cardless_pan: str
         return None
 
     datetime_operation = datetime.combine(date_operation, heure_operation)
-    is_cardless = (numero_carte.strip() == cardless_pan.strip())
+    if MASK_PAN:
+        numero_carte = mask_pan(numero_carte)
 
     if montant <= 0:
         logger.info(
@@ -331,13 +345,13 @@ def parse_ligne_tr(champs: list, tx_file_id: int, atm_id: int, cardless_pan: str
     return {
         "tx_file_id": tx_file_id,
         "atm_id": atm_id,
-        "num_seq_dab": num_seq_dab,
+        "num_autorisation_monetique": num_autorisation_monetique,
         "date_operation": date_operation,
         "heure_operation": heure_operation,
         "datetime_operation": datetime_operation,
         "montant": montant,
         "reste_coffre": reste_coffre,
-        "is_cardless": is_cardless,
+        "numero_carte": numero_carte,
     }
 
 
@@ -407,11 +421,11 @@ def inserer_transaction(conn, data: dict) -> None:
         text(
             """
             INSERT INTO transaction
-                (tx_file_id, atm_id, num_seq_dab, date_operation, heure_operation,
-                 datetime_operation, montant, reste_coffre, is_cardless)
+                (tx_file_id, atm_id, num_autorisation_monetique, date_operation, heure_operation,
+                 datetime_operation, montant, reste_coffre, numero_carte)
             VALUES
-                (:tx_file_id, :atm_id, :num_seq_dab, :date_operation, :heure_operation,
-                 :datetime_operation, :montant, :reste_coffre, :is_cardless)
+                (:tx_file_id, :atm_id, :num_autorisation_monetique, :date_operation, :heure_operation,
+                 :datetime_operation, :montant, :reste_coffre, :numero_carte)
             """
         ),
         data,
@@ -486,11 +500,6 @@ def traiter_fichier(engine: Engine, filepath: Path) -> bool:
 
         atm_id = atm_info["atm_id"]
 
-        # Récupération du cardless_pan configuré pour ce DAB
-        cardless_pan = conn.execute(
-            text("SELECT cardless_pan FROM atm WHERE id = :id"), {"id": atm_id}
-        ).scalar_one()
-
         # Cas fichier absent (ne devrait pas arriver ici, géré en amont par le
         # script de collecte, mais on le gère par robustesse)
         if not filepath.exists():
@@ -562,7 +571,7 @@ def traiter_fichier(engine: Engine, filepath: Path) -> bool:
                 )
 
             if type_ligne == "TR":
-                data = parse_ligne_tr(champs, tx_file_id, atm_id, cardless_pan, i)
+                data = parse_ligne_tr(champs, tx_file_id, atm_id, i)
                 if data:
                     if data.get("__ignored__"):
                         nb_tr_ignorees += 1

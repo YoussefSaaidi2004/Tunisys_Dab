@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Container, TextField, Typography } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/AuthContext'
 import { getDefaultRouteForRole } from '../auth/roleRoutes'
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
   const [form, setForm] = useState({ login: '', motDePasse: '' })
-  const [error, setError] = useState('')
+  const [error, setError] = useState(
+    location.state?.sessionExpired ? 'Votre session a expiré. Veuillez vous reconnecter.' : '',
+  )
   const [loading, setLoading] = useState(false)
 
   const submit = async (event) => {
