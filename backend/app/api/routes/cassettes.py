@@ -178,6 +178,44 @@ def export_cassette_events(
 	return StreamingResponse(_csv_export_generator(rows), media_type="text/csv", headers=headers)
 
 
+@router.get("/latest", response_model=APISuccess)
+def get_latest_cassette_state(
+	atm_id: int = Query(...),
+	_current_user: Utilisateur = Depends(require_role("ADMIN", "SUPERVISOR")),
+	db: Session = Depends(get_db_session),
+):
+	"""État le plus récent des cassettes d'un DAB : dernier événement CH/DE
+	connu (quel que soit son type) et sa ventilation par caisse."""
+	row = db.execute(
+		select(CassetteEvent, ATM)
+		.join(ATM, ATM.id == CassetteEvent.atm_id)
+		.where(CassetteEvent.atm_id == atm_id)
+		.order_by(
+			CassetteEvent.datetime_evenement.desc().nullslast(),
+			CassetteEvent.date_evenement.desc(),
+			CassetteEvent.heure_evenement.desc(),
+		)
+		.limit(1)
+	).one_or_none()
+
+	if row is None:
+		return APISuccess(data=None)
+
+	event, atm = row
+	caisses = db.scalars(
+		select(CassetteEtat)
+		.where(CassetteEtat.cassette_event_id == event.id)
+		.order_by(CassetteEtat.numero_caisse.asc())
+	).all()
+
+	data = {
+		**_serialize_cassette_event(event, atm),
+		"datetime_evenement": event.datetime_evenement,
+		"caisses": [_serialize_cassette_state(cassette_state) for cassette_state in caisses],
+	}
+	return APISuccess(data=data)
+
+
 @router.get("/{event_id}", response_model=APISuccess)
 def get_cassette_event_detail(
 	event_id: int,

@@ -33,3 +33,9 @@ export function fetchCassetteEvents(params) {
 export function fetchCassetteEventDetail(eventId) {
   return api.get(`/cassettes/${eventId}`)
 }
+
+export function fetchLatestCassetteState(atmId) {
+  return api.get('/cassettes/latest', {
+    params: { atm_id: atmId },
+  })
+}

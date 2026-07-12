@@ -42,7 +42,7 @@ def _apply_atm_payload(atm: ATM, payload: ATMCreate | ATMUpdate) -> ATM:
 
 @router.get("", response_model=APISuccess)
 def list_dab(
-    current_user: Utilisateur = Depends(require_role("ADMIN", "SUPERVISOR", "AGENT")),
+    current_user: Utilisateur = Depends(require_role("ADMIN", "SUPERVISOR", "AGENT", "AUDITOR")),
     db: Session = Depends(get_db_session),
 ):
     query = select(ATM)

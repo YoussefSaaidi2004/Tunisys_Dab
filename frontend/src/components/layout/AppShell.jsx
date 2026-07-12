@@ -17,21 +17,21 @@ const navigationByRole = {
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
     { label: 'Terminaux', to: '/terminaux', icon: <AccountTreeIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
-    { label: 'Cycles', to: '/cycles', icon: <AccountTreeIcon /> },
+    { label: 'Réapprovisionnements', to: '/cycles', icon: <AccountTreeIcon /> },
     { label: 'Utilisateurs', to: '/utilisateurs', icon: <ManageAccountsIcon /> },
     { label: 'Journal d’audit', to: '/audit', icon: <SecurityIcon /> },
   ],
   SUPERVISOR: [
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
-    { label: 'Cycles', to: '/cycles', icon: <AccountTreeIcon /> },
+    { label: 'Réapprovisionnements', to: '/cycles', icon: <AccountTreeIcon /> },
   ],
   AGENT: [
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
-    { label: 'Cycles', to: '/cycles', icon: <AccountTreeIcon /> },
+    { label: 'Réapprovisionnements', to: '/cycles', icon: <AccountTreeIcon /> },
   ],
   AUDITOR: [
-    { label: 'Cycles', to: '/cycles', icon: <AccountTreeIcon /> },
+    { label: 'Réapprovisionnements', to: '/cycles', icon: <AccountTreeIcon /> },
     { label: 'Journal d’audit', to: '/audit', icon: <SecurityIcon /> },
   ],
 }

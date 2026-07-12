@@ -3,9 +3,11 @@ import { Box, Typography } from '@mui/material'
 
 import AppShell from '../components/layout/AppShell'
 import CassetteEventsPanel from '../components/cassettes/CassetteEventsPanel'
+import CassetteStateCards from '../components/cassettes/CassetteStateCards'
 
 export default function DabDetail() {
   const { id } = useParams()
+  const atmId = Number(id)
 
   return (
     <AppShell>
@@ -18,7 +20,8 @@ export default function DabDetail() {
         </Typography>
       </Box>
 
-      <CassetteEventsPanel atmId={Number(id)} />
+      <CassetteStateCards atmId={atmId} />
+      <CassetteEventsPanel atmId={atmId} />
     </AppShell>
   )
 }

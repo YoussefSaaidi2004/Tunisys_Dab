@@ -8,25 +8,30 @@ function serializeParams(params = {}) {
       return
     }
 
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item !== null && item !== undefined && item !== '') {
+          searchParams.append(key, String(item))
+        }
+      })
+      return
+    }
+
     searchParams.append(key, String(value))
   })
 
   return searchParams.toString()
 }
 
-export function fetchDabCycles(atmId, params) {
-  return api.get(`/dab/${atmId}/cycles`, {
+export function fetchReapprovisionnements(params) {
+  return api.get('/cycles', {
     params,
     paramsSerializer: serializeParams,
   })
 }
 
-export function fetchCycleDetail(cycleId) {
-  return api.get(`/cycles/${cycleId}`)
-}
-
-export function exportDabCyclesCsv(atmId, params) {
-  return api.get(`/dab/${atmId}/cycles/export`, {
+export function exportReapprovisionnementsCsv(params) {
+  return api.get('/cycles/export', {
     params,
     paramsSerializer: serializeParams,
     responseType: 'blob',

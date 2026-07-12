@@ -3,10 +3,10 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import ProtectedRoute from './auth/ProtectedRoute'
 import { getDefaultRouteForRole } from './auth/roleRoutes'
-import Cycles from './pages/Cycles'
 import DabDetail from './pages/DabDetail'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
+import Reapprovisionnements from './pages/Reapprovisionnements'
 import Terminaux from './pages/Terminaux'
 import Transactions from './pages/Transactions'
 
@@ -52,7 +52,7 @@ export default function App() {
         path="/cycles"
         element={
           <ProtectedRoute roles={["ADMIN", "SUPERVISOR", "AGENT", "AUDITOR"]}>
-            <Cycles />
+            <Reapprovisionnements />
           </ProtectedRoute>
         }
       />
