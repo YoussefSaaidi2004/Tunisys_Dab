@@ -2,7 +2,14 @@ fastapi==0.116.1
 uvicorn[standard]==0.35.0
 sqlalchemy==2.0.43
 psycopg[binary]==3.2.13
-pydantic==2.11.7
-pydantic-settings==2.10.1
+pydantic==2.12.4
+pydantic-settings==2.11.0
+bcrypt==4.3.0
+email-validator==2.2.0
 python-jose[cryptography]==3.5.0
 python-multipart==0.0.20
+paramiko==3.4.0
+apscheduler==3.10.4
+cryptography>=45.0.0,<46
+openpyxl==3.1.5
+reportlab==5.0.0

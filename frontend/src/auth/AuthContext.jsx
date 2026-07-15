@@ -14,11 +14,22 @@ const MAX_TIMEOUT_MS = 2_147_483_647
 
 function decodeJwtPayload(token) {
   try {
-    const payloadBase64 = token.split('.')[1]
-    const normalizedBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/')
-    const paddedBase64 = normalizedBase64.padEnd(Math.ceil(normalizedBase64.length / 4) * 4, '=')
-    const payloadJson = atob(paddedBase64)
-    return JSON.parse(payloadJson)
+    if (!token || typeof token !== 'string') return null
+
+    const parts = token.split('.')
+    if (parts.length < 2 || !parts[1]) return null
+
+    const base64Url = parts[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const decoded = atob(padded)
+
+    // Décodage UTF-8 correct (pas juste atob+JSON.parse) : robuste si le
+    // payload contient un jour des caractères non-ASCII (login/nom accentués).
+    const bytes = Array.from(decoded, (char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
+    const json = decodeURIComponent(bytes)
+
+    return JSON.parse(json)
   } catch {
     return null
   }
@@ -114,7 +125,11 @@ export function AuthProvider({ children }) {
       throw new Error('Réponse d’authentification invalide')
     }
 
-    const nextUser = { login: loginValue, role: decodeJwtRole(payload.access_token) }
+    const tokenPayload = decodeJwtPayload(payload.access_token)
+    const nextUser = {
+      login: tokenPayload?.sub || loginValue,
+      role: tokenPayload?.role,
+    }
     persist(nextUser, payload)
     return nextUser
   }

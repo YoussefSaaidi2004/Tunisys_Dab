@@ -5,6 +5,8 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
 import SecurityIcon from '@mui/icons-material/Security'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import AssessmentIcon from '@mui/icons-material/Assessment'
 import MenuIcon from '@mui/icons-material/Menu'
 import { NavLink } from 'react-router-dom'
 
@@ -15,16 +17,20 @@ const drawerWidth = 280
 const navigationByRole = {
   ADMIN: [
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
+    { label: 'Import TX', to: '/import', icon: <CloudUploadIcon /> },
     { label: 'Terminaux', to: '/terminaux', icon: <AccountTreeIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
     { label: 'Réapprovisionnements', to: '/cycles', icon: <AccountTreeIcon /> },
-    { label: 'Utilisateurs', to: '/utilisateurs', icon: <ManageAccountsIcon /> },
+    { label: 'Rapports', to: '/rapports', icon: <AssessmentIcon /> },
+    { label: 'Gestion des utilisateurs', to: '/utilisateurs', icon: <ManageAccountsIcon /> },
     { label: 'Journal d’audit', to: '/audit', icon: <SecurityIcon /> },
   ],
   SUPERVISOR: [
     { label: 'Dashboard', to: '/', icon: <DashboardIcon /> },
+    { label: 'Import TX', to: '/import', icon: <CloudUploadIcon /> },
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
     { label: 'Réapprovisionnements', to: '/cycles', icon: <AccountTreeIcon /> },
+    { label: 'Rapports', to: '/rapports', icon: <AssessmentIcon /> },
   ],
   AGENT: [
     { label: 'Transactions', to: '/transactions', icon: <ReceiptLongIcon /> },
@@ -32,6 +38,7 @@ const navigationByRole = {
   ],
   AUDITOR: [
     { label: 'Réapprovisionnements', to: '/cycles', icon: <AccountTreeIcon /> },
+    { label: 'Rapports', to: '/rapports', icon: <AssessmentIcon /> },
     { label: 'Journal d’audit', to: '/audit', icon: <SecurityIcon /> },
   ],
 }
