@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx'
-
 import api from '../api/axiosClient'
 
 export const USE_MOCK = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === 'true'
@@ -352,7 +350,13 @@ function downloadBlob(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
 }
 
-function buildExcelBlob(report) {
+// Import dynamique : xlsx n'est utile qu'en mode mock (VITE_USE_MOCK), le
+// vrai export passe par le backend (openpyxl, voir rapports.py). Charger la
+// lib à la demande évite de l'embarquer/exécuter dans le bundle de prod
+// (xlsx a une vulnérabilité connue sans correctif — cf. npm audit).
+async function buildExcelBlob(report) {
+  const XLSX = await import('xlsx')
+
   const resumeRows = [
     ['Champ', 'Valeur'],
     ['Type de rapport', REPORT_TYPES[report.periode.type] || report.periode.type],
@@ -592,7 +596,7 @@ export async function exportRapport(params = {}, format = 'pdf') {
     : null
 
   if (USE_MOCK) {
-    const blob = format === 'excel' ? buildExcelBlob(report) : buildPdfFallbackBlob(report)
+    const blob = format === 'excel' ? await buildExcelBlob(report) : buildPdfFallbackBlob(report)
     const filename = buildReportFilename(report, format)
     downloadBlob(blob, filename)
     return
