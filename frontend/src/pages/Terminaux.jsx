@@ -7,11 +7,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Grid,
   IconButton,
   MenuItem,
@@ -28,13 +23,12 @@ import {
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ToggleOnIcon from '@mui/icons-material/ToggleOn'
 import ToggleOffIcon from '@mui/icons-material/ToggleOff'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 
-import { deactivateDab, deleteDab, fetchDabList, updateDab } from '../api/endpoints/dabs'
+import { deactivateDab, fetchDabList, updateDab } from '../api/endpoints/dabs'
 import AppShell from '../components/layout/AppShell'
 import DabFormDialog from '../components/dab/DabFormDialog'
 
@@ -72,8 +66,6 @@ export default function Terminaux() {
   const [dialogMode, setDialogMode] = useState('create')
   const [selectedDab, setSelectedDab] = useState(null)
   const [actionBusyId, setActionBusyId] = useState(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [dabToDelete, setDabToDelete] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -135,16 +127,6 @@ export default function Terminaux() {
     setSelectedDab(null)
   }
 
-  const handleOpenDeleteDialog = (dab) => {
-    setDabToDelete(dab)
-    setDeleteDialogOpen(true)
-  }
-
-  const handleCloseDeleteDialog = () => {
-    setDeleteDialogOpen(false)
-    setDabToDelete(null)
-  }
-
   const handleSaved = async () => {
     setDialogOpen(false)
     setSelectedDab(null)
@@ -164,25 +146,6 @@ export default function Terminaux() {
       await loadDabs()
     } catch (err) {
       setError(await extractErrorMessage(err, 'Impossible de modifier le statut du terminal'))
-    } finally {
-      setActionBusyId(null)
-    }
-  }
-
-  const handleConfirmDelete = async () => {
-    if (!dabToDelete) {
-      return
-    }
-
-    setActionBusyId(dabToDelete.id)
-    setError('')
-
-    try {
-      await deleteDab(dabToDelete.id)
-      handleCloseDeleteDialog()
-      await loadDabs()
-    } catch (err) {
-      setError(await extractErrorMessage(err, 'Impossible de supprimer le terminal'))
     } finally {
       setActionBusyId(null)
     }
@@ -305,14 +268,6 @@ export default function Terminaux() {
                         </IconButton>
                         <IconButton
                           color="inherit"
-                          onClick={() => handleOpenDeleteDialog(dab)}
-                          disabled={actionBusyId === dab.id}
-                          aria-label="Supprimer le terminal"
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          color="inherit"
                           onClick={() => handleToggleStatus(dab)}
                           disabled={actionBusyId === dab.id}
                           aria-label={dab.actif ? 'Désactiver le terminal' : 'Réactiver le terminal'}
@@ -336,30 +291,6 @@ export default function Terminaux() {
         onClose={handleCloseDialog}
         onSaved={handleSaved}
       />
-
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog}>
-        <DialogTitle>Supprimer le terminal</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {dabToDelete
-              ? `Le terminal ${dabToDelete.terminal_id} - ${dabToDelete.nom} sera supprimé définitivement de la base, ainsi que toutes ses données liées (transactions, cassettes, cycles de trésorerie, affectations). Cette action est irréversible.`
-              : 'Cette action supprime définitivement le terminal et toutes ses données liées.'}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={actionBusyId === dabToDelete?.id}>
-            Annuler
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleConfirmDelete}
-            disabled={actionBusyId === dabToDelete?.id}
-          >
-            Supprimer
-          </Button>
-        </DialogActions>
-      </Dialog>
     </AppShell>
   )
 }

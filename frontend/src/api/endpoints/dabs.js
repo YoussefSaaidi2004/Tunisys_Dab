@@ -23,7 +23,3 @@ export function updateDab(atmId, payload) {
 export function deactivateDab(atmId) {
   return updateDab(atmId, { actif: false })
 }
-
-export function deleteDab(atmId) {
-  return api.delete(`/dab/${atmId}`)
-}

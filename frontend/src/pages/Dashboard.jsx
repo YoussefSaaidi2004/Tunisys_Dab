@@ -43,11 +43,6 @@ const STATUT_CHIP_COLOR = {
   ERREUR: 'error',
 }
 
-const DISPONIBILITE_CHIP = {
-  OPERATIONNEL_SANS_TX: { color: 'warning', label: 'Sans activité' },
-  INDISPONIBLE: { color: 'error', label: 'Indisponible' },
-}
-
 function formatAmount(value) {
   return Number(value || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })
 }
@@ -319,36 +314,27 @@ export default function Dashboard() {
                         <TableCell>Terminal</TableCell>
                         <TableCell>Date</TableCell>
                         <TableCell>Statut</TableCell>
-                        <TableCell>Disponibilité</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {derniersImports.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} sx={{ py: 4, textAlign: 'center' }}>
+                          <TableCell colSpan={4} sx={{ py: 4, textAlign: 'center' }}>
                             <Typography variant="body2" color="text.secondary">Aucun import récent</Typography>
                           </TableCell>
                         </TableRow>
                       ) : null}
 
-                      {derniersImports.map((item) => {
-                        const disponibiliteChip = DISPONIBILITE_CHIP[item.disponibilite]
-                        return (
-                          <TableRow key={`${item.nom_fichier}-${item.terminal_id}`}>
-                            <TableCell>{item.nom_fichier}</TableCell>
-                            <TableCell>{item.terminal_id}</TableCell>
-                            <TableCell>{formatDateLong(item.date_fichier)}</TableCell>
-                            <TableCell>
-                              <Chip size="small" label={item.statut} color={STATUT_CHIP_COLOR[item.statut] || 'default'} />
-                            </TableCell>
-                            <TableCell>
-                              {disponibiliteChip ? (
-                                <Chip size="small" label={disponibiliteChip.label} color={disponibiliteChip.color} />
-                              ) : null}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
+                      {derniersImports.map((item) => (
+                        <TableRow key={`${item.nom_fichier}-${item.terminal_id}`}>
+                          <TableCell>{item.nom_fichier}</TableCell>
+                          <TableCell>{item.terminal_id}</TableCell>
+                          <TableCell>{formatDateLong(item.date_fichier)}</TableCell>
+                          <TableCell>
+                            <Chip size="small" label={item.statut} color={STATUT_CHIP_COLOR[item.statut] || 'default'} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </TableContainer>
