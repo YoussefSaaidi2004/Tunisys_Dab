@@ -25,22 +25,53 @@ A suivre **dans l'ordre**, sur le serveur Windows cible.
 
 ---
 
-## Base de donnees (schema initial + migrations)
+## Base de donnees (schema SQL brut, application manuelle via psql)
 
-> Ce projet n'utilise pas Alembic. Le schema est gere via un dump SQL
-> complet et des fichiers de migration bruts, **non idempotents** (rejouer
-> un fichier deja applique provoque une erreur, ex. colonne deja renommee).
-> A faire manuellement, avec prudence, avant de demarrer le service backend.
+> Le schema PostgreSQL de ce projet est gere par des fichiers **SQL bruts**,
+> appliques manuellement via `psql` — il n'existe pas d'outil de migration
+> automatise. Cette section est **entierement manuelle** et doit etre
+> terminee AVANT d'executer `deploy\install_service.ps1` (ce script
+> n'installe que le venv, les dependances et le service NSSM — il ne touche
+> jamais a la base de donnees).
+>
+> **Base neuve vs base pre-existante — ne pas confondre les deux procedures :**
+> `Tunisys_Dab.sql` cree deja les 10 tables avec la structure **a jour**
+> (colonnes `transaction.num_autorisation_monetique` et
+> `transaction.numero_carte`). Les fichiers `migrations\*.up.sql` ne
+> s'appliquent QU'A une base **pre-existante** montee avec l'**ancienne**
+> structure (`num_seq_dab`, `is_cardless`) : par exemple
+> `001_transaction_num_autorisation_monetique.up.sql` fait un `RENAME
+> COLUMN num_seq_dab TO num_autorisation_monetique`, qui **echouerait** sur
+> une base vierge ou cette colonne n'a jamais existe (et ferait echouer
+> toute la transaction `BEGIN...COMMIT` du fichier). **Sur une base
+> vierge, ne PAS appliquer les fichiers `migrations\*.up.sql` : `Tunisys_Dab.sql`
+> produit deja l'etat final.**
 
-- [ ] Si la base est neuve : appliquer le schema initial complet
+- [ ] Creer la base de donnees et le role/utilisateur applicatif PostgreSQL
+      **avant** d'appliquer le script SQL ci-dessous (ex. `CREATE DATABASE
+      "Tunisys_Dab";` et le role `postgres`/dedie avec le mot de passe qui
+      ira dans `backend\.env`).
+- [ ] Base neuve (cas du deploiement initial) : appliquer **uniquement**
+      le schema initial complet, qui cree les 10 tables **dans l'ordre des
+      dependances de cles etrangeres** (ex. `atm` avant
+      `atm_id_historique`, `atm`/`tx_file` avant `transaction`) — cet ordre
+      est deja respecte a l'interieur du fichier, il suffit de l'executer
+      tel quel en une seule fois :
       ```powershell
       psql -h localhost -U postgres -d Tunisys_Dab -f "C:\Users\Administrator\Desktop\Tunisys_Dab\Tunisys_Dab.sql"
       ```
-- [ ] Appliquer chaque migration de `migrations\*.up.sql` **dans l'ordre du
-      prefixe numerique**, une seule fois chacune :
+      Ne PAS appliquer `migrations\*.up.sql` a la suite dans ce cas : la
+      structure qu'ils visent a corriger est deja celle produite par
+      `Tunisys_Dab.sql`.
+- [ ] Base pre-existante (migration d'un serveur qui tournait deja avec
+      l'ancienne structure `num_seq_dab`/`is_cardless`) : appliquer
+      chaque fichier de `migrations\*.up.sql`, **dans l'ordre numerique
+      croissant du prefixe** (001, puis 002, etc.), une seule fois chacun :
       ```powershell
       psql -h localhost -U postgres -d Tunisys_Dab -f "C:\Users\Administrator\Desktop\Tunisys_Dab\migrations\001_transaction_num_autorisation_monetique.up.sql"
       ```
+      (repeter pour chaque fichier `*.up.sql` suivant, dans l'ordre de son
+      prefixe numerique — a ce jour, seul le fichier `001_...` existe).
 - [ ] Noter quelque part (ex. ce fichier, coche a la main) quelles
       migrations ont deja ete appliquees sur cette base, puisqu'il n'y a
       pas de table de suivi automatique.
@@ -53,13 +84,14 @@ A suivre **dans l'ordre**, sur le serveur Windows cible.
       valeurs reelles : `DB_PASSWORD`, `JWT_SECRET_KEY` (a generer),
       `CORS_ORIGINS` (URL reelle du site IIS). Voir les commentaires du
       fichier pour la commande de generation de chaque cle.
+- [ ] Verifier que la section "Base de donnees" ci-dessus est **entierement
+      terminee** (schema + migrations appliques) : `install_service.ps1` ne
+      la verifie pas et ne touche jamais a la base.
 - [ ] Depuis `backend\`, executer `deploy\install_service.ps1` (PowerShell
       en administrateur) :
       - [ ] Cree le venv `.venv` (idempotent, ignore s'il existe deja).
       - [ ] Installe `requirements.txt` tel quel (ne pas le regenerer :
             versions figees fastapi 0.116.1 / uvicorn 0.35.0).
-      - [ ] Le script demande confirmation que le schema DB est a jour
-            (voir section precedente) avant de continuer.
       - [ ] Installe/replace le service NSSM `Tunisys_Dab_Backend`
             (`python.exe` du venv, arguments `-m uvicorn app.main:app
             --host 127.0.0.1 --port 8000`, **sans** `--reload`, startup

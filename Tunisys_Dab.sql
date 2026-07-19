@@ -21,7 +21,7 @@ CREATE TABLE atm (
     ip_address      VARCHAR(45),
     ssh_port        INTEGER DEFAULT 22,
     ssh_login       VARCHAR(100),
-    ssh_password    TEXT,                       -- chiffré AES-256 côté applicatif
+    ssh_password    TEXT,                       -- mot de passe SSH (stocké en clair — chiffrement retiré pour ce déploiement de stage)
     chemin_remote   VARCHAR(255),
     actif           BOOLEAN DEFAULT TRUE,
     date_creation   TIMESTAMPTZ DEFAULT NOW(),

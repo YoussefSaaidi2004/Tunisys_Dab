@@ -8,13 +8,18 @@
         cd C:\Users\Administrator\Desktop\Tunisys_Dab\backend
         .\..\deploy\install_service.ps1
 
-    Etapes realisees :
+    Etapes realisees par ce script (uniquement) :
       1. Creation du venv .venv s'il n'existe pas deja (idempotent).
       2. Installation des dependances depuis requirements.txt (fige, fourni
          separement : fastapi 0.116.1, uvicorn 0.35.0, ne pas regenerer).
-      3. PAS de migration automatique ici (voir section MIGRATIONS ci-dessous).
-      4. Installation/mise a jour du service NSSM "Tunisys_Dab_Backend".
-      5. Configuration du service en demarrage automatique + demarrage.
+      3. Installation/mise a jour du service NSSM "Tunisys_Dab_Backend".
+      4. Configuration du service en demarrage automatique + demarrage.
+
+    Ce script NE TOUCHE PAS a la base de donnees. La creation du schema
+    PostgreSQL (script SQL complet + fichiers de migration dans
+    migrations\*.up.sql, appliques manuellement via psql, dans l'ordre
+    numerique) est une etape PREALABLE, a realiser AVANT d'executer ce
+    script. Voir CHECKLIST_DEPLOIEMENT.md, section "Base de donnees".
 
     IMPORTANT :
       - La commande Uvicorn ne doit JAMAIS contenir --reload en production
@@ -26,28 +31,10 @@
         reverse-proxy defini dans deploy\web.config.
       - NSSM (Non-Sucking Service Manager) doit deja etre installe et
         accessible dans le PATH de la machine (verifie en debut de script).
-
-.NOTES
-    MIGRATIONS DE BASE DE DONNEES - ETAPE MANUELLE VOLONTAIRE
-    -----------------------------------------------------------------------
-    Ce projet n'utilise PAS Alembic (aucune dependance alembic dans
-    requirements.txt, aucun alembic.ini). Le schema initial est fourni par
-    Tunisys_Dab.sql (dump complet) et les evolutions de schema sont des
-    fichiers SQL bruts et NON idempotents dans migrations\*.up.sql (ex:
-    un RENAME COLUMN qui echoue si rejoue une seconde fois).
-    Ce script NE LES APPLIQUE PAS automatiquement, pour eviter de rejouer
-    par erreur un script deja applique. Voir CHECKLIST_DEPLOIEMENT.md pour
-    la procedure manuelle (psql) a suivre AVANT de lancer ce script sur une
-    base neuve, ou avant de redemarrer le service apres l'ajout d'un nouveau
-    fichier migrations\*.up.sql.
 #>
 
 [CmdletBinding()]
-param(
-    # Permet de sauter la question de confirmation des migrations (usage
-    # avance / re-execution du script en connaissance de cause).
-    [switch]$SkipMigrationPrompt
-)
+param()
 
 $ErrorActionPreference = "Stop"
 
@@ -83,9 +70,9 @@ if (-not (Test-Path $RequirementsTx)) {
 # ETAPE 1 : Creation du venv (idempotent)
 # =========================================================================
 if (Test-Path $PythonExe) {
-    Write-Host "[1/5] venv deja present ($VenvDir), creation ignoree." -ForegroundColor Yellow
+    Write-Host "[1/4] venv deja present ($VenvDir), creation ignoree." -ForegroundColor Yellow
 } else {
-    Write-Host "[1/5] Creation du venv dans $VenvDir ..." -ForegroundColor Cyan
+    Write-Host "[1/4] Creation du venv dans $VenvDir ..." -ForegroundColor Cyan
     $pythonSysteme = Get-Command python -ErrorAction SilentlyContinue
     if (-not $pythonSysteme) {
         throw "Aucun 'python' trouve dans le PATH du serveur pour creer le venv. Installer Python 3 (celui qui a servi a figer requirements.txt) et reessayer."
@@ -100,7 +87,7 @@ if (Test-Path $PythonExe) {
 # =========================================================================
 # ETAPE 2 : Installation des dependances (figees, requirements.txt fourni tel quel)
 # =========================================================================
-Write-Host "[2/5] Installation des dependances depuis requirements.txt ..." -ForegroundColor Cyan
+Write-Host "[2/4] Installation des dependances depuis requirements.txt ..." -ForegroundColor Cyan
 & $PythonExe -m pip install --upgrade pip
 & $PythonExe -m pip install -r $RequirementsTx
 if ($LASTEXITCODE -ne 0) {
@@ -109,27 +96,12 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Dependances installees." -ForegroundColor Green
 
 # =========================================================================
-# ETAPE 3 : Migrations - ETAPE MANUELLE (voir .NOTES en tete de script)
-# =========================================================================
-Write-Host "[3/5] Migrations de base de donnees : etape MANUELLE (pas d'Alembic dans ce projet)." -ForegroundColor Yellow
-Write-Host "      Schema initial     : Tunisys_Dab.sql (a la racine du projet)" -ForegroundColor Yellow
-Write-Host "      Evolutions schema  : migrations\*.up.sql (non idempotents, a appliquer une seule fois, dans l'ordre)" -ForegroundColor Yellow
-Write-Host "      Voir CHECKLIST_DEPLOIEMENT.md, section Backend, pour la procedure psql detaillee." -ForegroundColor Yellow
-
-if (-not $SkipMigrationPrompt) {
-    $reponse = Read-Host "Confirmez-vous que le schema PostgreSQL (Tunisys_Dab.sql + migrations appliquees) est deja a jour sur ce serveur ? (O/N)"
-    if ($reponse -notmatch '^[oO]') {
-        throw "Installation interrompue : appliquer le schema PostgreSQL avant de continuer (voir CHECKLIST_DEPLOIEMENT.md), puis relancer ce script."
-    }
-}
-
-# =========================================================================
-# ETAPE 4 : Installation / mise a jour du service NSSM
+# ETAPE 3 : Installation / mise a jour du service NSSM
 # =========================================================================
 $serviceExiste = Get-Service -Name $NomService -ErrorAction SilentlyContinue
 
 if ($serviceExiste) {
-    Write-Host "[4/5] Service $NomService deja installe, mise a jour de sa configuration ..." -ForegroundColor Yellow
+    Write-Host "[3/4] Service $NomService deja installe, mise a jour de sa configuration ..." -ForegroundColor Yellow
     # On s'assure que le service pointe bien vers les valeurs verrouillees
     # (utile si le script est relance apres un changement de version Python, etc.)
     & nssm.exe stop $NomService
@@ -137,7 +109,7 @@ if ($serviceExiste) {
     & nssm.exe set $NomService AppParameters $UvicornArgs
     & nssm.exe set $NomService AppDirectory $BackendDir
 } else {
-    Write-Host "[4/5] Installation du service $NomService ..." -ForegroundColor Cyan
+    Write-Host "[3/4] Installation du service $NomService ..." -ForegroundColor Cyan
     & nssm.exe install $NomService $PythonExe
     & nssm.exe set $NomService AppParameters $UvicornArgs
     # Startup directory = dossier backend, pour que les imports relatifs
@@ -156,9 +128,9 @@ if (-not (Test-Path $LogsDir)) {
 & nssm.exe set $NomService AppRotateFiles 1
 
 # =========================================================================
-# ETAPE 5 : Demarrage automatique + demarrage du service
+# ETAPE 4 : Demarrage automatique + demarrage du service
 # =========================================================================
-Write-Host "[5/5] Configuration du demarrage automatique et demarrage du service ..." -ForegroundColor Cyan
+Write-Host "[4/4] Configuration du demarrage automatique et demarrage du service ..." -ForegroundColor Cyan
 & nssm.exe set $NomService Start SERVICE_AUTO_START
 & nssm.exe start $NomService
 

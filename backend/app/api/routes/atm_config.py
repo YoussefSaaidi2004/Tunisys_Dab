@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_role
-from app.core.crypto import encrypt_ssh_field
 from app.core.database import get_db_session
 from app.models.atm import ATM
 from app.models.utilisateur import Utilisateur
@@ -25,8 +24,8 @@ def update_ssh_config(
     if not atm:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DAB introuvable")
 
-    atm.ssh_login = encrypt_ssh_field(payload.ssh_login)
-    atm.ssh_password = encrypt_ssh_field(payload.ssh_password)
+    atm.ssh_login = payload.ssh_login
+    atm.ssh_password = payload.ssh_password
     if payload.ssh_port is not None:
         atm.ssh_port = payload.ssh_port
 

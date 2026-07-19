@@ -38,8 +38,6 @@ class Settings(BaseSettings):
 
     seuil_alerte_coffre: float = Field(default=5000, alias="SEUIL_ALERTE_COFFRE")
 
-    ssh_encryption_key: str = Field(default="", alias="SSH_ENCRYPTION_KEY")
-
     collecte_auto_enabled: bool = Field(default=False, alias="COLLECTE_AUTO_ENABLED")
 
     @property
