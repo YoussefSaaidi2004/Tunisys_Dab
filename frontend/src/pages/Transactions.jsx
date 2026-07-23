@@ -29,6 +29,7 @@ import { exportTransactionsCsv, fetchTransactions, fetchTransactionsDailySummary
 import { useAuth } from '../auth/AuthContext'
 import AppShell from '../components/layout/AppShell'
 import DailyDistributionChart from '../components/charts/DailyDistributionChart'
+import CarteDistributionParDab from '../components/transactions/CarteDistributionParDab'
 
 const DEFAULT_LIMIT = 50
 
@@ -391,6 +392,8 @@ export default function Transactions() {
           </Stack>
         </CardContent>
       </Card>
+
+      <CarteDistributionParDab filtres={appliedFilters} dabs={dabs} />
 
       <Card sx={{ mb: 3, border: '1px solid rgba(255,255,255,0.08)' }}>
         <CardContent>

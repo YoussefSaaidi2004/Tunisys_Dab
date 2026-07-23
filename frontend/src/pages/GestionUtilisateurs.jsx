@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -7,7 +7,11 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -28,13 +32,14 @@ import ToggleOffIcon from '@mui/icons-material/ToggleOff'
 import ToggleOnIcon from '@mui/icons-material/ToggleOn'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
+import CloseIcon from '@mui/icons-material/Close'
 
 import ShuffleIcon from '@mui/icons-material/Shuffle'
 
 import { useAuth } from '../auth/AuthContext'
 import AppShell from '../components/layout/AppShell'
 
-import UserAffectationsDialog from '../components/users/UserAffectationsDialog'
+import AffectationDabTransferList from '../components/users/AffectationDabTransferList'
 import UserFormDialog from '../components/users/UserFormDialog'
 import { createUser, listUsers, updateUser } from '../services/utilisateursService'
 const ROLE_OPTIONS = ['ADMIN', 'SUPERVISOR', 'AGENT', 'AUDITOR']
@@ -99,9 +104,10 @@ export default function GestionUtilisateurs() {
   const [editingUser, setEditingUser] = useState(null)
   const [affectationsOpen, setAffectationsOpen] = useState(false)
   const [affectationsUser, setAffectationsUser] = useState(null)
-  
+  const affectationsRef = useRef(null)
+
   const [mutatingUserId, setMutatingUserId] = useState(null)
-  
+
 
   const pageParams = useMemo(
     () => ({
@@ -247,7 +253,22 @@ export default function GestionUtilisateurs() {
     setAffectationsOpen(true)
   }
 
-  
+  const closeAffectations = () => {
+    setAffectationsOpen(false)
+    setAffectationsUser(null)
+  }
+
+  // Le composant lui-meme decide s'il faut confirmer (modifications non
+  // enregistrees) avant d'autoriser la fermeture reelle du Dialog.
+  const handleAffectationsDialogClose = () => {
+    if (affectationsRef.current) {
+      affectationsRef.current.requestClose(closeAffectations)
+    } else {
+      closeAffectations()
+    }
+  }
+
+
 
   return (
     <AppShell>
@@ -393,13 +414,28 @@ export default function GestionUtilisateurs() {
         onSubmit={handleSaveUser}
       />
 
-      <UserAffectationsDialog
-        open={affectationsOpen}
-        user={affectationsUser}
-        onClose={() => setAffectationsOpen(false)}
-      />
+      <Dialog open={affectationsOpen} onClose={handleAffectationsDialogClose} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Affectations DAB — {affectationsUser?.login}
+          <IconButton onClick={handleAffectationsDialogClose} size="small" aria-label="Fermer">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {affectationsUser ? (
+            <AffectationDabTransferList
+              ref={affectationsRef}
+              utilisateurId={affectationsUser.id}
+              role={affectationsUser.role}
+              onSaved={() => {
+                void loadUsers()
+              }}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
-      
+
 
       <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={closeSnackbar} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
         <Alert onClose={closeSnackbar} severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>

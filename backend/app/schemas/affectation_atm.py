@@ -25,3 +25,22 @@ class AffectationATMResponse(ORMBaseSchema):
 class AffectationATMListResponse(BaseModel):
     total: int
     items: list[AffectationATMResponse]
+
+
+class AffectationDabItem(BaseModel):
+    atm_id: int
+    terminal_id: str
+    nom: str
+    actif: bool
+    date_affectation: datetime | None = None
+
+
+class AffectationSetRequest(BaseModel):
+    atm_ids: list[int]
+
+
+class AffectationSetResult(BaseModel):
+    ajoutes: list[int]
+    retires: list[int]
+    inchanges: list[int]
+    total: int

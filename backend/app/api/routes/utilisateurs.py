@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_role
 from app.core.database import get_db_session
 from app.core.security import hash_password
+from app.models.affectation_atm import AffectationATM
+from app.models.atm import ATM
 from app.models.utilisateur import Utilisateur
+from app.schemas.affectation_atm import AffectationSetRequest
 from app.schemas.common import APISuccess
 from app.schemas.utilisateur import (
     UtilisateurCreate,
@@ -171,3 +175,118 @@ def update_utilisateur(
     return APISuccess(data=UtilisateurResponse.model_validate(user).model_dump())
 
 
+@router.get("/{utilisateur_id}/affectations", response_model=APISuccess, dependencies=[Depends(require_role("ADMIN"))])
+def list_utilisateur_affectations(utilisateur_id: int, db: Session = Depends(get_db_session)):
+    _get_utilisateur_or_404(db, utilisateur_id)
+
+    rows = db.execute(
+        select(
+            AffectationATM.atm_id,
+            ATM.terminal_id,
+            ATM.nom,
+            ATM.actif,
+            AffectationATM.date_affectation,
+        )
+        .join(ATM, ATM.id == AffectationATM.atm_id)
+        .where(AffectationATM.utilisateur_id == utilisateur_id)
+        .order_by(ATM.terminal_id)
+    ).all()
+
+    data = [
+        {
+            "atm_id": row.atm_id,
+            "terminal_id": row.terminal_id,
+            "nom": row.nom,
+            "actif": row.actif,
+            "date_affectation": row.date_affectation.isoformat() if row.date_affectation else None,
+        }
+        for row in rows
+    ]
+    return APISuccess(data=data, meta={"total": len(data)})
+
+
+@router.put("/{utilisateur_id}/affectations", response_model=APISuccess)
+def set_utilisateur_affectations(
+    utilisateur_id: int,
+    payload: AffectationSetRequest,
+    request: Request,
+    current_user: Utilisateur = Depends(require_role("ADMIN")),
+    db: Session = Depends(get_db_session),
+):
+    user = _get_utilisateur_or_404(db, utilisateur_id)
+
+    if user.role != "AGENT":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seul un utilisateur de rôle AGENT peut recevoir des affectations DAB",
+        )
+
+    # Dédup en entrée : la liste peut contenir des doublons (ex. sélection UI),
+    # on ne veut jamais tenter un INSERT en double sur (utilisateur_id, atm_id).
+    requested_ids = set(payload.atm_ids)
+
+    if requested_ids:
+        existing_atm_ids = set(db.scalars(select(ATM.id).where(ATM.id.in_(requested_ids))).all())
+        unknown_ids = sorted(requested_ids - existing_atm_ids)
+        if unknown_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"DAB(s) inconnu(s) : {', '.join(str(i) for i in unknown_ids)}",
+            )
+
+    current_ids = set(
+        db.scalars(
+            select(AffectationATM.atm_id).where(AffectationATM.utilisateur_id == utilisateur_id)
+        ).all()
+    )
+
+    a_ajouter = sorted(requested_ids - current_ids)
+    a_retirer = sorted(current_ids - requested_ids)
+    inchanges = sorted(requested_ids & current_ids)
+
+    # Différentiel explicite (DELETE des seules lignes retirées, INSERT des
+    # seules nouvelles) plutôt qu'un DELETE global + INSERT global : ce
+    # dernier détruirait la date_affectation historique des lignes inchangées.
+    try:
+        if a_retirer:
+            db.execute(
+                delete(AffectationATM).where(
+                    AffectationATM.utilisateur_id == utilisateur_id,
+                    AffectationATM.atm_id.in_(a_retirer),
+                )
+            )
+        for atm_id in a_ajouter:
+            db.add(AffectationATM(utilisateur_id=utilisateur_id, atm_id=atm_id))
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflit lors de la mise à jour des affectations",
+        ) from None
+
+    write_audit(
+        db,
+        action="MODIF_AFFECTATION",
+        utilisateur_id=current_user.id,
+        ressource=f"utilisateur:{utilisateur_id}",
+        details={
+            "avant": sorted(current_ids),
+            "apres": sorted(requested_ids),
+            "ajoutes": a_ajouter,
+            "retires": a_retirer,
+        },
+        adresse_ip=request.client.host if request.client else None,
+        resultat="SUCCES",
+    )
+
+    return APISuccess(
+        data={
+            "ajoutes": a_ajouter,
+            "retires": a_retirer,
+            "inchanges": inchanges,
+            "total": len(requested_ids),
+        },
+        meta={},
+    )

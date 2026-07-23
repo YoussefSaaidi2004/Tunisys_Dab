@@ -3,11 +3,11 @@ import api from '../api/axiosClient'
 const USE_MOCK = String(import.meta.env.VITE_USE_MOCK).toLowerCase() === 'true'
 
 const MOCK_DABS = [
-  { id: 1, terminal_id: '120001', nom: 'DAB Tunis Centre', actif: true },
-  { id: 2, terminal_id: '100203', nom: 'DAB La Marsa', actif: true },
-  { id: 3, terminal_id: '111502', nom: 'DAB Sfax Port', actif: true },
-  { id: 4, terminal_id: '140118', nom: 'DAB Sousse Ville', actif: false },
-  { id: 5, terminal_id: '160044', nom: 'DAB Nabeul Centre', actif: true },
+  { id: 1, terminal_id: '120001', nom: 'DAB Tunis Centre', adresse: 'Avenue Habib Bourguiba, Tunis', actif: true },
+  { id: 2, terminal_id: '100203', nom: 'DAB La Marsa', adresse: 'La Marsa, Tunis', actif: true },
+  { id: 3, terminal_id: '111502', nom: 'DAB Sfax Port', adresse: 'Port de Sfax', actif: true },
+  { id: 4, terminal_id: '140118', nom: 'DAB Sousse Ville', adresse: 'Centre-ville, Sousse', actif: false },
+  { id: 5, terminal_id: '160044', nom: 'DAB Nabeul Centre', adresse: 'Nabeul Centre', actif: true },
 ]
 
 let mockUsers = [
@@ -136,21 +136,23 @@ function normalizeBoolean(value) {
   return Boolean(value)
 }
 
+// Vue "affectations d'un utilisateur", alignee sur le contrat de
+// GET /utilisateurs/{id}/affectations (atm_id, terminal_id, nom, actif,
+// date_affectation) - pas sur la forme interne de mockAffectations.
 function getMockAffectationView(userId) {
   return mockAffectations
     .filter((item) => item.utilisateur_id === userId)
     .map((item) => {
       const dab = MOCK_DABS.find((entry) => entry.id === item.atm_id)
       return {
-        id: item.id,
-        utilisateur_id: item.utilisateur_id,
         atm_id: item.atm_id,
+        terminal_id: dab?.terminal_id || null,
+        nom: dab?.nom || null,
+        actif: dab?.actif ?? true,
         date_affectation: item.date_affectation,
-        utilisateur_login: mockUsers.find((user) => user.id === item.utilisateur_id)?.login || null,
-        atm_terminal_id: dab?.terminal_id || null,
-        atm_nom: dab?.nom || null,
       }
     })
+    .sort((a, b) => String(a.terminal_id).localeCompare(String(b.terminal_id)))
 }
 
 function filterUsers({ search, role, actif }) {
@@ -338,110 +340,86 @@ export function updateUser(id, payload) {
 
 
 
+// Liste allegee et non paginee de tous les DAB (colonne "disponibles" du
+// transfer list). Reutilise listDabs() plutot que de dupliquer un appel
+// /dab : seule la forme du champ id -> atm_id differe, alignee ici sur le
+// contrat atm_id partage avec getAffectations/setAffectations.
+export function getDabSelecteur() {
+  if (USE_MOCK) {
+    const items = clone(MOCK_DABS).map((dab) => ({
+      atm_id: dab.id,
+      terminal_id: dab.terminal_id,
+      nom: dab.nom,
+      adresse: dab.adresse || null,
+      actif: dab.actif,
+    }))
+    return delay(makeSuccess(items, { total: items.length }))
+  }
+
+  return listDabs().then((response) => {
+    const items = response.data?.data || []
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        data: items.map((dab) => ({
+          atm_id: dab.id,
+          terminal_id: dab.terminal_id,
+          nom: dab.nom,
+          adresse: dab.adresse || null,
+          actif: dab.actif,
+        })),
+      },
+    }
+  })
+}
+
 export function getAffectations(id) {
   if (USE_MOCK) {
     const items = getMockAffectationView(Number(id))
-    return delay(
-      makeSuccess(
-        {
-          total: items.length,
-          items: clone(items),
-        },
-        {
-          total: items.length,
-          page: 1,
-          page_size: items.length || 0,
-        },
-      ),
-    )
+    return delay(makeSuccess(clone(items), { total: items.length }))
   }
 
-  return api.get(`/utilisateurs/${id}/affectations`).catch((error) => {
-    if (error.response?.status === 404) {
-      return api.get('/affectations', { params: { utilisateur_id: id } })
-    }
-
-    throw error
-  })
+  return api.get(`/utilisateurs/${id}/affectations`)
 }
 
-export function addAffectation(id, atmId) {
+// Remplacement integral des affectations d'un agent en un seul appel
+// (semantique "set replacement" - cf. AffectationDabTransferList). Le
+// backend calcule le differentiel ; le mock reproduit la meme logique pour
+// rester fidele au comportement reel (date_affectation preservee pour les
+// DAB inchanges).
+export function setAffectations(id, atmIds) {
   if (USE_MOCK) {
     const user = getUserOrThrow(id)
     if (user.role !== 'AGENT') {
-      throw createError('Seul un utilisateur AGENT peut être affecté à un DAB', 400, 'ERR_INVALID_ROLE')
+      throw createError('Seul un utilisateur de rôle AGENT peut recevoir des affectations DAB', 400, 'ERR_ROLE_INVALIDE')
     }
 
-    const dab = MOCK_DABS.find((item) => item.id === Number(atmId))
-    if (!dab) {
-      throw createError('DAB introuvable', 404, 'ERR_DAB_NOT_FOUND')
+    const requestedIds = [...new Set((atmIds || []).map(Number))]
+    const unknownIds = requestedIds.filter((atmId) => !MOCK_DABS.some((dab) => dab.id === atmId))
+    if (unknownIds.length > 0) {
+      throw createError(`DAB(s) inconnu(s) : ${unknownIds.join(', ')}`, 400, 'ERR_ATM_NOT_FOUND')
     }
 
-    const existing = mockAffectations.find((item) => item.utilisateur_id === user.id && item.atm_id === Number(atmId))
-    if (existing) {
-      throw createError('Cet agent est déjà affecté à ce DAB', 409, 'ERR_DUPLICATE_AFFECTATION')
-    }
+    const currentIds = mockAffectations.filter((item) => item.utilisateur_id === user.id).map((item) => item.atm_id)
+    const ajoutes = requestedIds.filter((atmId) => !currentIds.includes(atmId))
+    const retires = currentIds.filter((atmId) => !requestedIds.includes(atmId))
+    const inchanges = requestedIds.filter((atmId) => currentIds.includes(atmId))
 
-    const affectation = {
-      id: nextAffectationId,
-      utilisateur_id: user.id,
-      atm_id: Number(atmId),
-      date_affectation: new Date().toISOString(),
-    }
-
-    mockAffectations = [...mockAffectations, affectation]
-    nextAffectationId += 1
+    mockAffectations = mockAffectations.filter((item) => !(item.utilisateur_id === user.id && retires.includes(item.atm_id)))
+    ajoutes.forEach((atmId) => {
+      mockAffectations = [
+        ...mockAffectations,
+        { id: nextAffectationId, utilisateur_id: user.id, atm_id: atmId, date_affectation: new Date().toISOString() },
+      ]
+      nextAffectationId += 1
+    })
 
     return delay(
-      makeSuccess({
-        ...clone(affectation),
-        utilisateur_login: user.login,
-        atm_terminal_id: dab.terminal_id,
-        atm_nom: dab.nom,
-      }),
+      makeSuccess({ ajoutes, retires, inchanges, total: requestedIds.length }),
+      600,
     )
   }
 
-  return api.post(`/utilisateurs/${id}/affectations`, {
-    atm_id: atmId,
-  }).catch((error) => {
-    if (error.response?.status === 404) {
-      return api.post('/affectations', {
-        utilisateur_id: id,
-        atm_id: atmId,
-      })
-    }
-
-    throw error
-  })
-}
-
-export async function removeAffectation(id, atmId) {
-  if (USE_MOCK) {
-    const affectation = mockAffectations.find((item) => item.utilisateur_id === Number(id) && item.atm_id === Number(atmId))
-    if (!affectation) {
-      throw createError('Affectation introuvable', 404, 'ERR_AFFECTATION_NOT_FOUND')
-    }
-
-    mockAffectations = mockAffectations.filter((item) => item.id !== affectation.id)
-    return delay(makeSuccess({ message: 'Affectation supprimée avec succès' }))
-  }
-
-  try {
-    return await api.delete(`/utilisateurs/${id}/affectations/${atmId}`)
-  } catch (error) {
-    if (error.response?.status !== 404) {
-      throw error
-    }
-  }
-
-  const response = await api.get('/affectations', { params: { utilisateur_id: id } })
-  const items = response.data?.data?.items || []
-  const affectation = items.find((item) => Number(item.atm_id) === Number(atmId))
-
-  if (!affectation?.id) {
-    throw createError('Affectation introuvable', 404, 'ERR_AFFECTATION_NOT_FOUND')
-  }
-
-  return api.delete(`/affectations/${affectation.id}`)
+  return api.put(`/utilisateurs/${id}/affectations`, { atm_ids: atmIds })
 }

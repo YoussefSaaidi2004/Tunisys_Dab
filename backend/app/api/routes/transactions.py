@@ -18,6 +18,7 @@ from app.models.atm import ATM
 from app.models.transaction import Transaction
 from app.models.utilisateur import Utilisateur
 from app.schemas.common import APISuccess
+from app.schemas.transaction import DistributionParDabItem
 
 router = APIRouter(prefix="/transactions")
 
@@ -44,6 +45,23 @@ def _normalize_date_range(date_debut: date | None, date_fin: date | None) -> tup
 def _validate_montant_range(montant_min: float | None, montant_max: float | None) -> None:
 	if montant_min is not None and montant_max is not None and montant_min > montant_max:
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="montant_min doit être inférieur ou égal à montant_max")
+
+
+def _parse_atm_ids_csv(atm_ids: str | None) -> list[int] | None:
+	if not atm_ids:
+		return None
+
+	parsed: list[int] = []
+	for part in atm_ids.split(","):
+		part = part.strip()
+		if not part:
+			continue
+		try:
+			parsed.append(int(part))
+		except ValueError:
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"atm_ids invalide : '{part}'")
+
+	return parsed or None
 
 
 def _apply_transaction_filters(
@@ -168,6 +186,46 @@ def _build_daily_summary_query(
 	)
 	return query.group_by(Transaction.date_operation, Transaction.atm_id).order_by(
 		Transaction.date_operation, Transaction.atm_id
+	)
+
+
+def _build_distribution_par_dab_query(
+	current_user: Utilisateur,
+	atm_ids: list[int] | None,
+	date_debut: date,
+	date_fin: date,
+	heure_debut: time | None,
+	heure_fin: time | None,
+	montant_min: float | None,
+	montant_max: float | None,
+	reste_coffre_max: float | None,
+	search: str | None,
+):
+	query = (
+		select(
+			Transaction.atm_id.label("atm_id"),
+			ATM.terminal_id.label("terminal_id"),
+			ATM.nom.label("nom"),
+			func.sum(Transaction.montant).label("montant_total"),
+			func.count(Transaction.id).label("nb_transactions"),
+		)
+		.join(ATM, ATM.id == Transaction.atm_id)
+	)
+	query = _apply_transaction_filters(
+		query,
+		current_user=current_user,
+		atm_ids=atm_ids,
+		date_debut=date_debut,
+		date_fin=date_fin,
+		heure_debut=heure_debut,
+		heure_fin=heure_fin,
+		montant_min=montant_min,
+		montant_max=montant_max,
+		reste_coffre_max=reste_coffre_max,
+		search=search,
+	)
+	return query.group_by(Transaction.atm_id, ATM.terminal_id, ATM.nom).order_by(
+		func.sum(Transaction.montant).desc()
 	)
 
 
@@ -304,6 +362,69 @@ def get_transactions_daily_summary(
 		for row in rows
 	]
 	return APISuccess(data=data, meta={"total": len(data)})
+
+
+@router.get("/statistiques/distribution-par-dab", response_model=APISuccess)
+def get_distribution_par_dab(
+	atm_ids: str | None = Query(default=None, description="IDs de DAB séparés par des virgules"),
+	date_debut: date | None = Query(default=None),
+	date_fin: date | None = Query(default=None),
+	heure_debut: time | None = Query(default=None),
+	heure_fin: time | None = Query(default=None),
+	montant_min: float | None = Query(default=None),
+	montant_max: float | None = Query(default=None),
+	reste_coffre_max: float | None = Query(default=None),
+	search: str | None = Query(default=None),
+	current_user: Utilisateur = Depends(require_role("ADMIN", "SUPERVISOR", "AGENT", "AUDITOR")),
+	db: Session = Depends(get_db_session),
+):
+	date_debut, date_fin = _normalize_date_range(date_debut, date_fin)
+	_validate_montant_range(montant_min, montant_max)
+	parsed_atm_ids = _parse_atm_ids_csv(atm_ids)
+
+	query = _build_distribution_par_dab_query(
+		current_user=current_user,
+		atm_ids=parsed_atm_ids,
+		date_debut=date_debut,
+		date_fin=date_fin,
+		heure_debut=heure_debut,
+		heure_fin=heure_fin,
+		montant_min=montant_min,
+		montant_max=montant_max,
+		reste_coffre_max=reste_coffre_max,
+		search=search,
+	)
+
+	rows = db.execute(query).all()
+
+	montant_global = sum(float(row.montant_total or 0) for row in rows)
+	nb_transactions_global = sum(int(row.nb_transactions) for row in rows)
+
+	items: list[DistributionParDabItem] = []
+	for row in rows:
+		montant_total = float(row.montant_total or 0)
+		pourcentage = round((montant_total / montant_global) * 100, 1) if montant_global else 0.0
+		items.append(
+			DistributionParDabItem(
+				atm_id=row.atm_id,
+				terminal_id=row.terminal_id,
+				nom=row.nom,
+				montant_total=montant_total,
+				nb_transactions=int(row.nb_transactions),
+				pourcentage=pourcentage,
+			)
+		)
+
+	return APISuccess(
+		data=[item.model_dump() for item in items],
+		meta={
+			"montant_global": montant_global,
+			"nb_transactions_global": nb_transactions_global,
+			"nb_dab": len(items),
+			"date_debut": date_debut.isoformat(),
+			"date_fin": date_fin.isoformat(),
+		},
+	)
 
 
 @router.get("/export")
